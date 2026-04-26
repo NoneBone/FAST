@@ -1,0 +1,38 @@
+# Common directories and files to ignore
+00-COMMON/
+build/
+# .vscode/
+.vscode/c_cpp_properties.json
+.vscode/settings.json
+__pycache__/
+DATA/
+# EXP_ITERATION/
+
+# Model and interval files
+models/
+intervals*/
+
+# Test data
+test_set/*
+
+# Log files
+*.log
+*.txt
+!CMakeLists.txt
+!requirements.txt
+*.png
+*.pdf
+*.csv
+*.dat
+*.pickle
+fetch*.py
+# Compiled files
+*.o
+*.a
+*.npy
+*.pyc
+*.so
+*.nsys-rep
+nohup.out
+*.egg
+*.egg-info/
