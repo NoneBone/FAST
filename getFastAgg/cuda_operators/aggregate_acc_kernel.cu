@@ -45,8 +45,8 @@ std::vector<torch::Tensor> computation_aware_forward_tgat_cuda(// temporal
     int dim = input_feat.size(1);// 128
     auto output = torch::zeros({dst_num, dim}, torch::kCUDA);// 7882 * 100
     const dim3 threads(aggFeat, aggNodePB);// 32, 8
-    const dim3 blocks((dim+threads.x-1)/threads.x, (dst_num+threads.y-1)/threads.y);// 986, 4
     int edge_num = src_edges.size(0);// 1882
+    const dim3 blocks((dim+threads.x-1)/threads.x, (edge_num+threads.y-1)/threads.y);// cover all edges
 
     // float agg_start_time = clock();
     
@@ -110,8 +110,8 @@ std::vector<torch::Tensor> computation_aware_backward_tgat_cuda(// temporal
     // const dim3 threads(64); 
     // const dim3 blocks(dst_num, (dim+threads.x-1)/threads.x);
     const dim3 threads(aggFeat, aggNodePB);
-    const dim3 blocks((dim+threads.x-1)/threads.x, (dst_num+threads.y-1)/threads.y);
     int edge_num = src_edges.size(0);// 1882
+    const dim3 blocks((dim+threads.x-1)/threads.x, (edge_num+threads.y-1)/threads.y);
     int neighbor_num = 10;// no use
 
     // float agg_start_time = clock();

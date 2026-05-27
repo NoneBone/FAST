@@ -5,6 +5,13 @@ import numpy as np
 
 from fast_util.helper import *
 from fast_util.efficientGOP import *
+from fast_util.trainingVerifier import (
+    dgl_aggregate_reference,
+    print_bad_segments_once,
+    verify_forward_aggregate,
+    verify_forward_edge_softmax,
+)
+
 class TimeEncode(torch.nn.Module):
 
     def __init__(self, dim):
@@ -190,36 +197,41 @@ class TransfomerAttentionLayer(torch.nn.Module):
                 aggTemp = FUSED_TGAT.apply(f_tmp, V, densePtr, densePtr, b.edges()[1], b.edges()[0], b.num_dst_nodes(), b.num_src_nodes(), self.num_head, self.negative_slope)
             else:
                 att = dgl.ops.edge_softmax(b, f_tmp)
+            if fm.FORWARD_VERIFY_ERR and fm.fastESMFlag in (1, 2):
+                ref_att = dgl.ops.edge_softmax(b, f_tmp)
+                verify_forward_edge_softmax(
+                    ref_att,
+                    att,
+                    fm.FORWARD_VERIFY_ERR,
+                    f"(layer={_layers}, hist={_hist}, fastESMFlag={fm.fastESMFlag})",
+                )
             if fm.fastESMFlag == 3:
                 nsysForward.time_pop()
             else:
                 nsysForward.time_pop()
                 nsysForward.time_push("t_drop+reshape+cat")
                 att = self.att_dropout(att)
-                if not fm.fastDrop:
-                    V = torch.reshape(V*att[:, :, None], (V.shape[0], -1))
-                    b.srcdata['v'] = torch.cat([torch.zeros((b.num_dst_nodes(), V.shape[1]), device=torch.device('cuda:0')), V], dim=0)
+                if fm.fastDrop:
+                    src_v = FAST_DROP.apply(att, V, b.num_dst_nodes())
+                else:
+                    V = torch.reshape(V * att[:, :, None], (V.shape[0], -1))
+                    src_v = torch.cat([torch.zeros((b.num_dst_nodes(), V.shape[1]), device=torch.device('cuda:0')), V], dim=0)
+                    b.srcdata['v'] = src_v
                 nsysForward.time_pop()
                 nsysForward.time_push("t_agg")
                 if not fm.fastAggFlag:
                     if fm.fastDrop:
-                        b.srcdata['v'] = FAST_DROP.apply(att, V, b.num_dst_nodes())
+                        b.srcdata['v'] = src_v
                     b.update_all(dgl.function.copy_u('v', 'm'), dgl.function.sum('m', 'h'))
                 elif fm.fastAggFlag == 1:
-                    if fm.fastDrop:
-                        aggTemp = MA_Function_TGAT.apply(b.edges()[1], b.edges()[0], FAST_DROP.apply(att, V, b.num_dst_nodes()), b.num_dst_nodes(),10, 2) # 
-                    else:
-                        aggTemp = MA_Function_TGAT.apply(b.edges()[1], b.edges()[0], b.srcdata['v'], b.num_dst_nodes(),10, 2, b.srcdata['h'], self.dim_node_feat) # 
+                    aggTemp = MA_Function_TGAT.apply(b.edges()[1], b.edges()[0], src_v, b.num_dst_nodes(), 10, 2, b.srcdata['h'], self.dim_node_feat) # 
                 elif fm.fastAggFlag == 2:
                     if not fm.fastESMFlag:
                         if fm.CSR_OUT:
                             densePtr = fm.cntE[_layers]
                         else:
                             densePtr = unique2indptr(b.edges()[1], b.num_dst_nodes())
-                    if fm.fastDrop:
-                        aggTemp = MA_Function_TGAT.apply(b.edges()[1], b.edges()[0], FAST_DROP.apply(att, V, b.num_dst_nodes()), b.num_dst_nodes(), 10 ,2, densePtr, densePtr)
-                    else:
-                        aggTemp = MA_Function_TGAT.apply(b.edges()[1], b.edges()[0], b.srcdata['v'], b.num_dst_nodes(), 10 ,2, densePtr, densePtr)
+                    aggTemp = MA_Function_TGAT.apply(b.edges()[1], b.edges()[0], src_v, b.num_dst_nodes(), 10 ,2, densePtr, densePtr)
                 nsysForward.time_pop()
         nsysForward.time_push("t_beforeMLP")
         if (fm.fastAggFlag or fm.fastESMFlag == 3):
@@ -232,6 +244,32 @@ class TransfomerAttentionLayer(torch.nn.Module):
                 rst = torch.cat([b.dstdata['h'], b.srcdata['h'][:b.num_dst_nodes()]], dim=1)
             else:
                 rst = b.dstdata['h']
+        if fm.FORWARD_VERIFY_ERR and (fm.fastAggFlag or fm.fastESMFlag == 3):
+            if fm.fastAggFlag == 2:
+                print_bad_segments_once(
+                    b.edges()[1],
+                    densePtr,
+                    f"(layer={_layers}, hist={_hist}, fastESMFlag={fm.fastESMFlag}, fastAggFlag={fm.fastAggFlag})",
+                )
+            if fm.fastESMFlag == 3:
+                if not self.training or self.att_dropout.p == 0:
+                    ref_scores = self.att_act(torch.sum(Q * K, dim=2))
+                    ref_att = self.att_dropout(dgl.ops.edge_softmax(b, ref_scores))
+                    ref_v = torch.reshape(V * ref_att[:, :, None], (V.shape[0], -1))
+                    ref_src_v = torch.cat([torch.zeros((b.num_dst_nodes(), ref_v.shape[1]), device=torch.device('cuda:0')), ref_v], dim=0)
+                    verify_forward_aggregate(
+                        dgl_aggregate_reference(b, ref_src_v),
+                        aggTemp,
+                        fm.FORWARD_VERIFY_ERR,
+                        f"(layer={_layers}, hist={_hist}, fastESMFlag={fm.fastESMFlag}, fastAggFlag={fm.fastAggFlag})",
+                    )
+            else:
+                verify_forward_aggregate(
+                    dgl_aggregate_reference(b, src_v),
+                    aggTemp,
+                    fm.FORWARD_VERIFY_ERR,
+                    f"(layer={_layers}, hist={_hist}, fastESMFlag={fm.fastESMFlag}, fastAggFlag={fm.fastAggFlag})",
+                )
         rst = self.w_out(rst)
         rst = torch.nn.functional.relu(self.dropout(rst))
         tmp = self.layer_norm(rst)

@@ -2,8 +2,7 @@
 00-COMMON/
 build/
 # .vscode/
-.vscode/c_cpp_properties.json
-.vscode/settings.json
+.vscode/
 __pycache__/
 DATA/
 # EXP_ITERATION/

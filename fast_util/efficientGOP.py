@@ -2,6 +2,8 @@ import torch
 import dgl
 import fastAgg
 from fast_util.helper import *
+from fast_util.trainingVerifier import verify_esm_backward, verify_ma_backward
+
 
 class forwardManager(object):
     def __init__(self):
@@ -12,10 +14,14 @@ class forwardManager(object):
         self.node_num_per_block = 1
         self.aggFeat = 1
         self.aggNodePB = 1 
+        # Statistics
+        self.FORWARD_VERIFY_ERR = 0
+        self.BACKWARD_VERIFY_ERR = 0
         # No use
         self.fastKQV = 0
         self.fastTIME = 0
         self.fastDrop = 0
+
 
     def init_gop(self, fast_agg=0, fast_esm=0, csr_out=0):
         self.fastAggFlag = fast_agg
@@ -91,7 +97,8 @@ class ESM_Function_TGAT(torch.autograd.Function):
         elif fm.fastESMFlag == 2:
             d_x = fastAgg.backward_csr_edge_softmax(indptr, indices, d_input, output, fm.node_num_per_block, fm.reduceSize)[0]
         else:
-            raise ValueError("fastESMFlag must be 1 or 2")       
+            raise ValueError("fastESMFlag must be 1 or 2")
+        verify_esm_backward(indptr, d_input, output, d_x, fm.BACKWARD_VERIFY_ERR, fm.fastESMFlag)
         return None, None, d_x, None, None
     
 class MA_Function_TGAT(torch.autograd.Function):
@@ -128,6 +135,7 @@ class MA_Function_TGAT(torch.autograd.Function):
             d_x = fastAgg.backward_tgat(src_edge, dst_edge_9764, d_input, node_num_7882, fm.aggNodePB, fm.aggFeat)[0]
         else:
             raise ValueError("fastAggFlag must be 1 or 2")
+        verify_ma_backward(src_edge, dst_edge_9764, d_input, d_x, fm.BACKWARD_VERIFY_ERR, fm.fastAggFlag)
         return None, None, d_x, None, None, None, None, None
 
 def unique2indptr(dstID, dstNum):
