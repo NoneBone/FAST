@@ -66,7 +66,7 @@ std::vector<torch::Tensor> forward_edge_softmax_cuda(// best version
     const dim3 threads(num_heads, node_num_per_block, 1);// 32, 2
     const dim3 blocks((node_num+node_num_per_block-1)/node_num_per_block, 1);// 369, 1
     // int shared_memory = 2 * 2 * node_num_per_block * sizeof(float);
-    AT_DISPATCH_FLOATING_TYPES(input_feat.type(), "forward_edge_softmax_cuda_kernel", ([&] {
+    AT_DISPATCH_FLOATING_TYPES(input_feat.scalar_type(), "forward_edge_softmax_cuda_kernel", ([&] {
                                     forward_edge_softmax_cuda_kernel<scalar_t><<<blocks, threads>>>(
                                         indptr.packed_accessor32<int,1,torch::RestrictPtrTraits>(),
                                         input_feat.packed_accessor32<scalar_t,2,torch::RestrictPtrTraits>(),
@@ -92,7 +92,7 @@ std::vector<torch::Tensor> backward_edge_softmax_cuda(// best version
     const dim3 threads(num_heads, node_num_per_block, 1);
     const dim3 blocks((node_num + node_num_per_block-1)/node_num_per_block, 1);// 369, 1
     // int shared_memory = 2 * node_num_per_block * sizeof(float);
-    AT_DISPATCH_FLOATING_TYPES(d_output.type(), "backward_edge_softmax_cuda_kernel", ([&] {
+    AT_DISPATCH_FLOATING_TYPES(d_output.scalar_type(), "backward_edge_softmax_cuda_kernel", ([&] {
         backward_edge_softmax_cuda_kernel<scalar_t><<<blocks, threads>>>(
             indptr.packed_accessor32<int, 1, torch::RestrictPtrTraits>(),
             d_output.packed_accessor32<scalar_t, 2, torch::RestrictPtrTraits>(),
@@ -120,7 +120,7 @@ std::vector<torch::Tensor> forward_balanced_edge_softmax_cuda(// csr
     const dim3 threads(edge_num_per_block, num_heads, 1);// 64, 2, 1
     const dim3 blocks(balanceNum, 1);
     int shared_memory = 2 * 2 * edge_num_per_block * sizeof(float);
-    AT_DISPATCH_FLOATING_TYPES(input_feat.type(), "forward_balanced_edge_softmax_cuda_kernel", ([&] {
+    AT_DISPATCH_FLOATING_TYPES(input_feat.scalar_type(), "forward_balanced_edge_softmax_cuda_kernel", ([&] {
                                     forward_balanced_edge_softmax_cuda_kernel<scalar_t><<<blocks, threads, shared_memory>>>(
                                         indptr.packed_accessor32<long,1,torch::RestrictPtrTraits>(),
                                         indices.packed_accessor32<long,2,torch::RestrictPtrTraits>(),
@@ -148,7 +148,7 @@ std::vector<torch::Tensor> backward_balanced_edge_softmax_cuda(// csr
     const dim3 threads(edge_num_per_block, num_heads, 1);// 32, 2
     const dim3 blocks(balanceNum, 1);// less369, 1
     int shared_memory = 2 * edge_num_per_block * sizeof(float);
-    AT_DISPATCH_FLOATING_TYPES(d_output.type(), "backward_balanced_edge_softmax_cuda_kernel", ([&] {
+    AT_DISPATCH_FLOATING_TYPES(d_output.scalar_type(), "backward_balanced_edge_softmax_cuda_kernel", ([&] {
         backward_balanced_edge_softmax_cuda_kernel<scalar_t><<<blocks, threads, shared_memory>>>(
             indptr.packed_accessor32<long, 1, torch::RestrictPtrTraits>(),
             indices.packed_accessor32<long, 2, torch::RestrictPtrTraits>(),
@@ -194,7 +194,7 @@ std::vector<torch::Tensor> forward_csr_edge_softmax_cuda(// csr
     const dim3 threads(reduce_size, num_heads, node_num_per_block);// 32, 2
     const dim3 blocks((node_num + node_num_per_block-1)/node_num_per_block, 1);// 369, 1
     int shared_memory = 2 * 2 * node_num_per_block * sizeof(float);
-    AT_DISPATCH_FLOATING_TYPES(input_feat.type(), "forward_csr_edge_softmax_cuda_kernel", ([&] {
+    AT_DISPATCH_FLOATING_TYPES(input_feat.scalar_type(), "forward_csr_edge_softmax_cuda_kernel", ([&] {
                                     forward_csr_edge_softmax_cuda_kernel<scalar_t><<<blocks, threads, shared_memory>>>(
                                         indptr.packed_accessor32<int,1,torch::RestrictPtrTraits>(),
                                         input_feat.packed_accessor32<scalar_t,2,torch::RestrictPtrTraits>(),
@@ -221,7 +221,7 @@ std::vector<torch::Tensor> backward_csr_edge_softmax_cuda(
     const dim3 threads(reduce_size, num_heads, node_num_per_block);// 32, 2
     const dim3 blocks((node_num + node_num_per_block-1)/node_num_per_block, 1);// 369, 1
     int shared_memory = 2 * node_num_per_block * sizeof(float);
-    AT_DISPATCH_FLOATING_TYPES(d_output.type(), "backward_csr_edge_softmax_cuda_kernel", ([&] {
+    AT_DISPATCH_FLOATING_TYPES(d_output.scalar_type(), "backward_csr_edge_softmax_cuda_kernel", ([&] {
         backward_csr_edge_softmax_cuda_kernel<scalar_t><<<blocks, threads, shared_memory>>>(
             indptr.packed_accessor32<int, 1, torch::RestrictPtrTraits>(),
             d_output.packed_accessor32<scalar_t, 2, torch::RestrictPtrTraits>(),

@@ -19,11 +19,11 @@ at::Tensor exclusive_sum_cuda(
     // auto in_degs_pad = torch::zeros({1}, torch::kCUDA).to(at::kInt);
     auto in_degs_pad = torch::cat({in_degs,torch::zeros({1}, torch::kCUDA).to(at::kInt)});// all 1
     int num_items = in_degs_pad.size(0);// 172266
-    int* input_data = in_degs_pad.data<int>();
+    int* input_data = in_degs_pad.data_ptr<int>();
 
     auto edge_ptr = torch::zeros({num_items}, torch::kCUDA).to(at::kInt);// out: 172266
 
-    int* output_ptr = edge_ptr.data<int>();
+    int* output_ptr = edge_ptr.data_ptr<int>();
 
     void     *d_temp_storage = NULL;
     size_t   temp_storage_bytes = 0;
@@ -66,7 +66,7 @@ at::Tensor cal_deg_cuda(
     int device = edges.get_device();
     auto deg = torch::zeros({nodes_num}).to(at::Device(at::kCUDA, device)).to(at::kInt);
 
-    AT_DISPATCH_ALL_TYPES(deg.type(), "cal_deg_cuda_kernel", ([&] {
+    AT_DISPATCH_ALL_TYPES(deg.scalar_type(), "cal_deg_cuda_kernel", ([&] {
                                     cal_deg_cuda_kernel<<<blocks, threads>>>(
                                         edges.packed_accessor32<int,1,torch::RestrictPtrTraits>(),
                                         deg.packed_accessor32<int,1,torch::RestrictPtrTraits>(),
@@ -125,7 +125,7 @@ at::Tensor get_balanced_cuda(
 
     auto mask = torch::zeros({num-1}).to(at::Device(at::kCUDA, device)).to(at::kInt);
 
-    AT_DISPATCH_ALL_TYPES(densePtr.type(), "getBalancedPtrKernel", ([&] {
+    AT_DISPATCH_ALL_TYPES(densePtr.scalar_type(), "getBalancedPtrKernel", ([&] {
                                     getBalancedPtrKernel<<<blocks, threads, shared_mem>>>(
                                         densePtr.packed_accessor32<int,1,torch::RestrictPtrTraits>(),
                                         mask.packed_accessor32<int,1,torch::RestrictPtrTraits>(),

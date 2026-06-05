@@ -62,7 +62,7 @@ std::vector<torch::Tensor> computation_aware_forward_tgat_shd_cuda(
     const dim3 blocks((num_node+threads.x-1)/threads.x, (dim+threads.y-1)/threads.y);// 369, 1
 # endif
     // float agg_start_time = clock();
-    AT_DISPATCH_FLOATING_TYPES(input_feat.type(), "computation_aware_forward_tgat_shd_cuda_kernel", ([&] {
+    AT_DISPATCH_FLOATING_TYPES(input_feat.scalar_type(), "computation_aware_forward_tgat_shd_cuda_kernel", ([&] {
                                     computation_aware_forward_tgat_shd_cuda_kernel<scalar_t><<<blocks, threads, shared_memory>>>(
                                         indptr.packed_accessor32<int,1,torch::RestrictPtrTraits>(),
                                         indices.packed_accessor32<int,1,torch::RestrictPtrTraits>(),
@@ -237,7 +237,7 @@ std::vector<torch::Tensor> computation_aware_backward_tgat_shd_cuda(
     const dim3 threads(aggNodePB, aggFeat); // 8, 32
     const dim3 blocks((num_node+threads.x-1)/threads.x, (feat_dim+threads.y-1)/threads.y);// 47, 4
 # endif
-    AT_DISPATCH_FLOATING_TYPES(d_input.type(), "computation_aware_backward_tgat_shd_cuda_kernel", ([&] {
+    AT_DISPATCH_FLOATING_TYPES(d_input.scalar_type(), "computation_aware_backward_tgat_shd_cuda_kernel", ([&] {
                                     computation_aware_backward_tgat_shd_cuda_kernel<scalar_t><<<blocks, threads, shared_memory>>>(
                                         indptr.packed_accessor32<int,1,torch::RestrictPtrTraits>(),
                                         indices.packed_accessor32<int,1,torch::RestrictPtrTraits>(),

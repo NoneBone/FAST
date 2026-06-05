@@ -99,7 +99,7 @@ std::vector<torch::Tensor> forward_fused_attn_cuda(
     const dim3 threads(WARP_SIZE_indegree, num_heads, SHAPE_Z);// 32, 2
     const dim3 blocks(node_num_396, 1, (shape3+SHAPE_Z-1)/SHAPE_Z);// 369, 1
     int shared_memory = 2 * num_heads * sizeof(float) + num_heads * SHAPE_Z * sizeof(float);
-    AT_DISPATCH_FLOATING_TYPES(input_feat.type(), "forward_fused_attn_cuda_kernel", ([&] {
+    AT_DISPATCH_FLOATING_TYPES(input_feat.scalar_type(), "forward_fused_attn_cuda_kernel", ([&] {
                                     forward_fused_attn_cuda_kernel<scalar_t><<<blocks, threads, shared_memory>>>(
                                         input_feat.packed_accessor32<scalar_t,2,torch::RestrictPtrTraits>(),
                                         V_val.packed_accessor32<scalar_t,3,torch::RestrictPtrTraits>(),
@@ -162,7 +162,7 @@ std::vector<torch::Tensor> backward_fused_attn_cuda(
     const dim3 threads(WARP_SIZE_indegree, num_heads, SHAPE_Z);// 16, 2， 32
     const dim3 blocks(node_num_396, 1, (shape3+SHAPE_Z-1)/SHAPE_Z);// 369, 1， 2
     int shared_memory = 2 * num_heads * sizeof(float) + num_heads * SHAPE_Z * sizeof(float);
-    AT_DISPATCH_FLOATING_TYPES(d_output_agg.type(), "backward_fused_attn_cuda_kernel", ([&] {
+    AT_DISPATCH_FLOATING_TYPES(d_output_agg.scalar_type(), "backward_fused_attn_cuda_kernel", ([&] {
         backward_fused_attn_cuda_kernel<scalar_t><<<blocks, threads, shared_memory>>>(
             d_output_agg.packed_accessor32<scalar_t, 2, torch::RestrictPtrTraits>(),
             V_val.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
